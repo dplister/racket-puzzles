@@ -1,0 +1,77 @@
+#lang racket
+
+(require "../prelude.rkt")
+
+(define (pad-left lst n)
+  "pads the start of lst n amount of 0's"
+  (append (make-list (- n (length lst)) 0)
+          lst))
+
+(define (bin num)
+  (pad-left (number->binary num) 36))
+
+(define (parse-mask input)
+  (map (lambda (v) (or (char->num v) v)) (string->list input)))
+
+(define (parse-mem input)
+  (map string->number (drop (regexp-match #px"mem\\[([0-9]+)\\] = ([0-9]+)" input) 1)))
+
+(define (apply-mask mask bnum)
+  (map (lambda (b m)
+         (if (equal? m #\X) b m))
+       bnum mask))
+
+(define (parse-raw lines)
+  (list (parse-mask (last (string-split (first lines))))
+        (map parse-mem (drop lines 1))))
+
+(define (run-program mask bnum [mem #hash()])
+  (foldl
+   (lambda (l r)
+     (dict-set r
+               (first l)
+               (binary->number
+                (apply-mask mask (bin (second l))))))
+   mem
+   bnum))
+
+(define (generate-masks mask)
+  "generates the set of masks that result from 
+
+(define (part-a)
+  (define subprogs
+    (map parse-raw
+         (sublists (file->lines "data/DayFourteen.txt")
+                   (lambda (i) (regexp-match #rx"mask" i)))))
+  (define last-mem
+    (foldl (lambda (prog mem)
+             (run-program (first prog) (second prog) mem))
+           #hash() subprogs))
+  (apply + (dict-values last-mem)))
+  ;(apply + (dict-values (run-program (first input) (second input)))))
+
+(module+ test
+  (require rackunit)
+
+  (check-equal?
+   (binary->number
+    (apply-mask
+     (parse-mask "XXXXXXXXXXXXXXXXXXXXXXXXXXXXX1XXXX0X")
+     (bin 11)))
+   73)
+
+  (define example-input
+    (list "mask = XXXXXXXXXXXXXXXXXXXXXXXXXXXXX1XXXX0X"
+          "mem[8] = 11"
+          "mem[7] = 101"
+          "mem[8] = 0"))
+
+  (check-equal?
+   (second (parse-raw example-input))
+   '((8 11) (7 101) (8 0)))
+
+  (let ([r (parse-raw example-input)])
+    (check-equal?
+     (run-program (first r) (second r))
+     #hash((7 . 101) (8 . 64))))
+)

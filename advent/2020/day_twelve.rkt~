@@ -1,0 +1,4 @@
+#lang racket
+
+(define (parse-dir input)
+  (string-split input 1)

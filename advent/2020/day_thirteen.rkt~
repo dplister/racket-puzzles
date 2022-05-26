@@ -1,0 +1,70 @@
+#lang racket
+
+(define (nearest num step)
+  "finds the first step greater than or equal to num"
+  (define n (* step (quotient num step)))
+  (or (and (>= n num) n)
+      (+ n step)))
+
+(define (find-nearest num steps)
+  "finds the step that occurs nearest the num"
+  (first (sort (map (lambda (s) (cons s (nearest num s))) steps) < #:key cdr)))
+
+(define (in-sequence steps [start-time 0])
+  "finds a sequence where each step occurs 1 min after the rest"
+  (define (loop ls num)
+    (cond
+      [(empty? ls) 'complete]
+      [(or (equal? (first ls) "x")
+           (equal? (nearest num (first ls)) num))
+       (loop (rest ls) (add1 num))]
+      [else (nearest num (first ls))]))
+  (define (search start)
+    (let ([res (loop steps start)])
+      (if (equal? res 'complete)
+        start
+        (search (max (+ start (first steps))
+                     (nearest res (first steps)))))))
+  (search start-time))
+
+(define (part-a)
+  (define lines (file->lines "data/DayThirteen.txt"))
+  (define start-time (string->number (first lines)))
+  (define result (find-nearest start-time
+                               (filter-map string->number (string-split (second lines) ","))))
+  (* (car result) (- (cdr result) start-time)))
+
+(define (part-b)
+  (define lines (file->lines "data/DayThirteen.txt"))
+  (in-sequence (map (lambda (v) (or (string->number v)
+                                    "x"))
+                    (string-split (second lines) ","))
+               100000000000000))
+
+(module+ test
+  (require rackunit)
+
+  (define example-times
+    (list 7 13 59 31 19))
+
+  (for ([t example-times]
+        [expected (list 945 949 944 961 950)])
+    (check-equal?
+     (nearest 939 t)
+     expected))
+
+  (check-equal?
+   (find-nearest 939 example-times)
+   '(59 . 944))
+
+  (for ([input (list (list 17 "x" 13 19)
+                     (list 67 7 59 61)
+                     (list 67 "x" 7 59 61)
+                     (list 67 7 "x" 59 61)
+                     (list 1789 37 47 1889))]
+        [expected (list 3417 754018 779210 1261476 1202161486)])
+    (check-equal?
+     (in-sequence input)
+     expected))
+    
+)
