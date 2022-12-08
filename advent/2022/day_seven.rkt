@@ -46,15 +46,19 @@
 		(cons dir path)
 		(~> ds
 		    ; add to existing path if we blind visited
-		    (add-item (first path) (list 'dir dir))
+		    (add-item path (list 'dir (cons dir path)))
 		    ; create path if first visit
-		    (add-item dir (list))))]
+		    (add-item (cons dir path) (list))))]
+      [(list 'dir dirname)
+       (execute (rest moves)
+		path
+		(add-item ds path (list 'dir (cons dirname path))))]
       [(list 'ls)
        (execute (rest moves) path ds)]
       [else
        (execute (rest moves)
 		path
-		(add-item ds (first path) (first moves)))])))
+		(add-item ds path (first moves)))])))
 
 (define (calculate-totals ds)
   "searches the set of directories and calculates their total sizes"
@@ -79,6 +83,21 @@
 
 (part-a (get-input))
 
+(define minimum-install 30000000)
+(define disk-size 70000000)
+
+(define (part-b input)
+  (define totals
+    (calculate-totals
+      (execute 
+	(map parse-line input))))
+  (define used (second (first (filter (lambda (v) (equal? (first v) (list "/"))) totals))))
+  (define free (- disk-size used))
+  (define req (- minimum-install free))
+  (first (sort (filter-map (lambda (v) (and (>= (second v) req) (second v))) totals) <)))
+
+(part-b (get-input))
+
 (module+ test
   (require rackunit)
 
@@ -97,20 +116,26 @@
 
   (check-equal? 
     (execute '((move "a"))) 
-    (hash "/" (set '(dir "a")) "a" (set)))
+    (hash '("a" "/") (set) '("/") (set '(dir ("a" "/")))))
 
   (define example (file->lines "day_seven.example"))
 
-  (check-equal? 
-    (sort (calculate-totals
-      (execute 
-	(map parse-line example)))
-	  #:key car string<?)
-    (sort '(("e" 584) ("a" 94853) ("d" 24933642) ("/" 48381165))
-	  #:key car string<?))
+  (let ([totals 
+		(calculate-totals
+		  (execute 
+		    (map parse-line example)))])
+    (check-equal? 
+      (sort (map (lambda (v) (list (first (first v)) (second v))) totals)
+	#:key car string<?)
+      (sort '(("e" 584) ("a" 94853) ("d" 24933642) ("/" 48381165))
+	    #:key car string<?)))
 
   (check-equal?
     (part-a example)
     95437)
+
+  (check-equal?
+    (part-b example)
+    24933642)
 
 )
