@@ -21,13 +21,12 @@
       (append (map find-visible-treeline columns)
 	      (map find-visible-treeline rows)))))
 
-(define (find-visible-treeline trees)
+(define (find-visible-treeline treeline)
   "finds all trees that are visible in line"
-  (filter-map (lambda (i) 
-		(and (or (is-visible-left (take trees (add1 i)))
-			 (is-visible-right (drop trees i)))
-		     (list-ref trees i)))
-	  (range 0 (length trees))))
+  (remove-duplicates
+    (flatten 
+      (append (can-see-over treeline)
+	      (can-see-over (reverse treeline))))))
 
 (define (print-trees ts)
   "outputs trees by their coordinates"
@@ -37,26 +36,21 @@
 	(format "X: ~v Y: ~v Z: ~v" (point-x t) (point-y t) (location-z t))))
     ts))
 
-(define (is-visible-left ls)
-  (or (empty? ls)
-      (can-see-over 
-	(location-z (last ls))
-      	(rest (reverse (map location-z ls))))))
-
-(define (is-visible-right ls)
-  (or (empty? ls)
-      (can-see-over 
-	(location-z (first ls)) 
-	(rest (map location-z ls)))))
-
-(define (can-see-over v ls)
-  "returns #t if v is higher than all in ls"
-  (if (empty? ls) #t
-    (and (> v (first ls))
-	 (can-see-over v (rest ls)))))
+(define (can-see-over trees)
+  "returns set of trees that have a higher value than the previous"
+  (define (loop v ls)
+    (cond 
+      [(empty? ls) '()]
+      [(> (location-z (first ls)) (location-z v))
+       (cons (first ls) (loop (first ls) (rest ls)))]
+      [else
+	(loop v (rest ls))]))
+  (cons (first trees) (loop (first trees) (rest trees))))
 
 (define (part-a)
-  (length (find-visible-trees (parse-coords (file->lines "day_eight.txt") parse-number))))
+  (length 
+    (find-visible-trees 
+      (parse-coords (file->lines "day_eight.txt") parse-number))))
 
 (part-a)
 
@@ -77,6 +71,8 @@
 
   (check-equal? (find-visible-treeline (list (location 0 0 3) (location 0 1 2) (location 0 1 2) (location 0 2 3)))
 		(list (location 0 0 3) (location 0 2 3)))
+
+  (print-trees (find-visible-trees example))
 
   (check-equal? (length (find-visible-trees example)) 21)
 
