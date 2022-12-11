@@ -1,79 +1,83 @@
 #lang racket
 
-(require "../grid.rkt")
-
-(define (get-point-set g dimension point-accessor)
-  "retrieves the set of points across a grid dimension"
-  (map (lambda (orientation) 
-	 (sort (filter (lambda (p) (equal? (point-accessor p) orientation))
-		 (all-points g))
-	       (lambda (a b) 
-		 (or (< (point-x a) (point-x b))
-		     (and (< (point-x a) (point-x b))
-			  (< (point-y a) (point-y b)))))))
-       (range 0 (dimension g))))
+(require "grid.rkt")
 
 (define (find-visible-trees g)
-  (define columns (get-point-set g grid-width point-x))
-  (define rows (get-point-set g grid-height point-y))
-  (remove-duplicates
-    (flatten 
-      (append (map find-visible-treeline columns)
-	      (map find-visible-treeline rows)))))
+  (flatten
+    (map 
+      (lambda (y) 
+	(filter-map 
+	  (lambda (x) 
+	    (and
+	      (is-visible g x y)
+	      (get-point g x y)))
+	  (range 0 (grid-width g))))
+      (range 0 (grid-height g)))))
 
-(define (find-visible-treeline treeline)
-  "finds all trees that are visible in line"
-  (remove-duplicates
-    (flatten 
-      (append (can-see-over treeline)
-	      (can-see-over (reverse treeline))))))
+(define (is-visible g x y)
+  "determines if the current point is visible from the edge of the grid"
+  (or (can-see-over g x y 0 -1) ; up
+      (can-see-over g x y 1 0) ; right
+      (can-see-over g x y -1 0) ; left
+      (can-see-over g x y 0 1))) ; down
 
-(define (print-trees ts)
-  "outputs trees by their coordinates"
-  (for-each
-    (lambda (t) 
-      (displayln 
-	(format "X: ~v Y: ~v Z: ~v" (point-x t) (point-y t) (location-z t))))
-    ts))
-
-(define (can-see-over trees)
+(define (can-see-over g x y step-x step-y)
   "returns set of trees that have a higher value than the previous"
+  (define ps (telescope g x y step-x step-y))
+  (andmap (lambda (p) (> (first ps) p)) (rest ps)))
+
+(define (biggest-area g)
+  (apply max
+    (map 
+      (lambda (y) 
+	(apply max 
+	       (map 
+		 (lambda (x) 
+		   (area g x y))
+		 (range 0 (grid-width g)))))
+      (range 0 (grid-height g)))))
+
+(define (area g x y)
+  "calculates the total trees visible in the cardinal directions"
+  (* (visible-distance g x y 0 -1) ; up
+     (visible-distance g x y 1 0) ; right
+     (visible-distance g x y -1 0) ; left
+     (visible-distance g x y 0 1))) ; down
+
+(define (visible-distance g x y step-x step-y)
+  (define ps (telescope g x y step-x step-y))
   (define (loop v ls)
-    (cond 
-      [(empty? ls) '()]
-      [(> (location-z (first ls)) (location-z v))
-       (cons (first ls) (loop (first ls) (rest ls)))]
-      [else
-	(loop v (rest ls))]))
-  (cons (first trees) (loop (first trees) (rest trees))))
+    (cond
+      [(empty? ls) 0]
+      [(<= v (first ls)) 1]
+      [else (+ 1 (loop v (rest ls)))]))
+  (loop (first ps) (rest ps)))
 
 (define (part-a)
   (length 
     (find-visible-trees 
-      (parse-coords (file->lines "day_eight.txt") parse-number))))
+      (create-grid (file->lines "day_eight.txt")))))
 
 (part-a)
+
+(define (part-b)
+  (biggest-area
+    (create-grid (file->lines "day_eight.txt"))))
+
+(part-b)
 
 (module+ test
   (require rackunit)
 
   (define example
-    (parse-coords 
+    (create-grid
       (list "30373"
 	    "25512"
 	    "65332"
 	    "33549"
-	    "35390")
-      parse-number))
-
-  (check-equal? (find-visible-treeline (list (location 0 1 1) (location 0 1 2) (location 0 2 3)))
-		(list (location 0 1 1) (location 0 1 2) (location 0 2 3)))
-
-  (check-equal? (find-visible-treeline (list (location 0 0 3) (location 0 1 2) (location 0 1 2) (location 0 2 3)))
-		(list (location 0 0 3) (location 0 2 3)))
-
-  (print-trees (find-visible-trees example))
+	    "35390")))
 
   (check-equal? (length (find-visible-trees example)) 21)
+  (check-equal? (biggest-area example) 8)
 
 )
