@@ -41,17 +41,30 @@
 
 (define (render crt stack [cycle 1])
   "renders a set of pixels if crt is within stack values range"
-  (if (>= cycle (length stack)) '()
+  (if (< (length stack) 40) '()
     (cons 
       (rchar (list-ref stack crt) crt)
-      (render (if (= crt 39) 0 (add1 crt)) stack (add1 cycle)))))
+      (if (= crt 39)
+	(render 0 (drop stack 40) (add1 cycle))
+	(render (add1 crt) stack (add1 cycle))))))
 
 (define (rchar stack crt)
   "determines if the crt is in range of the stack value"
-  (displayln (format "stack ~v crt ~v" stack crt))
   (if (and (>= crt (sub1 stack))
 	   (<= crt (add1 stack)))
     #\# #\.))
+
+(define (draw characters)
+  (for-each (lambda (row)
+	      (for-each (lambda (c) (display c))
+			(take (drop characters (* 40 row)) 40))
+	      (displayln ""))
+	    (range 0 6)))
+
+(define (part-b input)
+  (draw (render 0 (execute (map parse-op input)))))
+
+(part-b (get-input))
 
 (module+ test
   (require rackunit)
@@ -86,4 +99,6 @@
   (check-equal? 
     (list->string (render 0 (execute (map parse-op example-2))))
     result-2)
+
+  (part-b example-2)
 )
