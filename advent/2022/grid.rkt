@@ -4,12 +4,14 @@
 
 (struct point (x y))
 
+(struct location (x y z))
+
 (struct grid (points width height) #:transparent)
 
-(define (create-grid lines)
+(define (create-grid lines [converter parse-number])
   (define cls (map string->list lines))
   (grid (list->vector
-	  (map parse-number (apply append cls)))
+	  (map converter (apply append cls)))
 	(length (first cls))
 	(length cls)))
 
@@ -33,6 +35,20 @@
     '()
     (cons pt 
 	  (telescope g (+ x step-x) (+ y step-y) step-x step-y end?))))
+
+(define (get-cardinal-locations g x y)
+  "collects all the cardinal locations around the x y position"
+  (filter-map (lambda (p)
+		(let ([z (get-point g (point-x p) (point-y p))])
+		  (and z (location p z))))
+	      (list 
+		(point x (- y 1)) ; up
+		(point x (+ y 1)) ; down
+		(point (- x 1) y) ; left
+		(point (+ x 1) y)))) ; right
+
+(define (find-z-location g z)
+  "finds location of 
 
 (module+ test
   (require rackunit)
