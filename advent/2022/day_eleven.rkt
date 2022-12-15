@@ -1,28 +1,14 @@
 #lang racket
 
-(struct monkey (num items operation pass) #:transparent)
+(struct monkey (num [items #:mutable] operation pass) #:transparent)
 
 (define (add-item m item)
   "gives the monkey an item"
-  (monkey (monkey-num m)
-	  (append (monkey-items m) (list item))
-	  (monkey-operation m)
-	  (monkey-pass m)))
-
-(define (add-item-action item)
-  "creates a function that can add a specific item to a monkey"
-  (lambda (m) (add-item m item)))
+  (set-monkey-items! m (cons item (monkey-items m))))
 
 (define (remove-item m)
   "removes the first item from the monkey"
-  (monkey (monkey-num m)
-	  (rest (monkey-items m))
-	  (monkey-operation m)
-	  (monkey-pass m)))
-
-(define (update-monkey monkies pos action)
-  "updates the num monkey with the corresponding action"
-  (list-set monkies pos (action (list-ref monkies pos))))
+  (set-monkey-items! m (rest (monkey-items m))))
 
 (define (monkey-madness monkies index inspections manage-worry)
   "performs full round of monkey passing"
@@ -30,17 +16,17 @@
     [(>= index (length monkies)) (values monkies inspections)]
     [else
       (define cm (list-ref monkies index))
+      (hash-update! inspections index (lambda (v) (+ v (length (monkey-items cm)))) 0)
+      (map (lambda (item)
+	     (let* ([rev-item (manage-worry (monkey-operation cm) item)]
+		    [pass-to (list-ref monkies ((monkey-pass cm) rev-item))])
+	       (add-item pass-to rev-item)
+	       (remove-item cm)))
+	   (monkey-items cm))
       (monkey-madness
-	(foldl (lambda (item result)
-	       (let ([rev-item (manage-worry (monkey-operation cm) item)])
-		 (update-monkey 
-		   (update-monkey result ((monkey-pass cm) rev-item) (add-item-action rev-item))
-		   index
-		   remove-item)))
-	     monkies
-	     (monkey-items cm))
+	monkies
 	(add1 index)
-	(hash-update inspections index (lambda (v) (+ v (length (monkey-items cm)))) 0)
+	inspections
 	manage-worry)]))
 
 (define (monkey-round monkies inspections rounds [manage-worry worry])
@@ -53,12 +39,13 @@
   "calculates the new worry value"
   (quotient (op item) 3))
 
-(define (freaking-out op item)
+(define (freaking-out-binding divisor)
   "calm blue oceans.. calm blue oceans.."
-  (op item))
+  (lambda (op item)
+    (modulo (op item) divisor)))
 
 (define (part-a input)
-  (let-values ([(monkies inspections) (monkey-round (parse-monkies input) #hash() 20)])
+  (let-values ([(monkies inspections) (monkey-round (parse-monkies input) (make-hash) 20)])
     (apply * (take
 	 (sort (hash-values inspections) >)
 	 2))))
@@ -67,7 +54,11 @@
   (file->lines "day_eleven.txt"))
 
 (define (part-b input)
-  (let-values ([(monkies inspections) (monkey-round (parse-monkies input) #hash() 10000 freaking-out)])
+  (let-values ([(monkies inspections) 
+		(monkey-round (parse-monkies input) 
+			      (make-hash) 
+			      10000 
+			      (freaking-out-binding (get-common-divisor input)))])
     (apply * (take
 	 (sort (hash-values inspections) >)
 	 2))))
@@ -118,15 +109,22 @@
       (parse-pass-to (third lines)))))
 
 (define (parse-divisible input)
-  (string->number 
-    (second (regexp-match #rx"Test: divisible by ([0-9]+)" input))))
+  (define m (regexp-match #rx"Test: divisible by ([0-9]+)" input))
+  (and m (string->number (second m))))
 
 (define (parse-pass-to input)
   (string->number (second (regexp-match #rx"throw to monkey ([0-9]+)" input))))
 
+(define (get-common-divisor lines)
+  "gets the set of divisors"
+  (define values (filter-map (lambda (v) (parse-divisible v)) lines))
+  (apply * values))
+
 ;; execution
 
 (part-a (get-input))
+
+(part-b (get-input))
 
 (module+ test
   (require rackunit)
@@ -173,10 +171,13 @@
 
   (check-equal? (map monkey-num (parse-monkies example)) '(0 1 2 3))
 
-  (check-equal? (last (monkey-items (list-ref
-				(update-monkey (parse-monkies example) 2 (add-item-action 999))
-				2)))
-		999)
+  (let ([monkey 
+	  (list-ref
+	    (parse-monkies example) 
+	    2)])
+    (add-item monkey 999)
+    (check-equal? (last (monkey-items monkey)) 
+		  999))
 
   (let-values ([(monkies inspections) (monkey-madness (parse-monkies example) 0 #hash() worry)])
     (for-each (lambda (m v)
@@ -191,5 +192,8 @@
     (check-equal? inspections #hash((0 . 101) (1 . 95) (2 . 7) (3 . 105))))
 
   (check-equal? (part-a example) 10605)
+
+  (check-equal? (get-common-divisor example) 96577)
+
   (check-equal? (part-b example) 2713310158)
 )

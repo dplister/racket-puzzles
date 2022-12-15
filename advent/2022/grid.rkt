@@ -2,9 +2,9 @@
 
 (provide (all-defined-out))
 
-(struct point (x y))
+(struct point (x y) #:transparent)
 
-(struct location (x y z))
+(struct location point (z) #:transparent)
 
 (struct grid (points width height) #:transparent)
 
@@ -40,15 +40,22 @@
   "collects all the cardinal locations around the x y position"
   (filter-map (lambda (p)
 		(let ([z (get-point g (point-x p) (point-y p))])
-		  (and z (location p z))))
+		  (and z (location (point-x p) (point-y p) z))))
 	      (list 
 		(point x (- y 1)) ; up
 		(point x (+ y 1)) ; down
 		(point (- x 1) y) ; left
 		(point (+ x 1) y)))) ; right
 
+(define (index-to-point g i)
+  "converts the index of vector to a point"
+  (point (modulo i (grid-width g))
+	 (quotient i (grid-width g))))
+
 (define (find-z-location g z)
-  "finds location of 
+  "finds location of the z value specified"
+  (define p (index-to-point g (vector-member z (grid-points g))))
+  (location (point-x p) (point-y p) z))
 
 (module+ test
   (require rackunit)
@@ -73,4 +80,7 @@
   (check-equal? (get-point example 1 1) 5)
   (check-equal? (get-point example 3 1) 1)
   (check-equal? (get-point example 2 2) 3)
+
+  (check-equal? (find-z-location example 5) (location 1 1 5))
+  (check-equal? (find-z-location example 9) (location 4 3 9))
 )
