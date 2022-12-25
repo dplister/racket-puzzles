@@ -26,7 +26,7 @@
     [#\6 6] [#\7 7] [#\8 8] [#\9 9] [#\0 0]))
 
 (define (get-point g x y)
-  "returns values at specified point"
+  "returns value at specified point"
   (and (>= x 0)
        (< x (grid-width g))
        (>= y 0)
@@ -35,7 +35,9 @@
 
 (define (set-point g x y z)
   "sets the value at specified point"
-  (vector-set! (grid-points g) (+ (* (grid-width g) y) x) z)
+  (define pos (+ (* (grid-width g) y) x))
+  ; (displayln (format "setting ~v at pos ~v" z pos))
+  (vector-set! (grid-points g) pos z)
   g)
 
 (define (telescope g x y step-x step-y [end? (lambda (v) (not v))])
